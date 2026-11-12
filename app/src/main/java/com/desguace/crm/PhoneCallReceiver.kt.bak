@@ -1,0 +1,519 @@
+
+package com.desguace.crm
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.telephony.TelephonyManager
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class PhoneCallReceiver : BroadcastReceiver() {
+
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) {
+            return
+        }
+
+        val state = intent.getStringExtra(
+            TelephonyManager.EXTRA_STATE
+        ) ?: return
+
+        val prefs = context.getSharedPreferences(
+            "desguace_crm",
+            Context.MODE_PRIVATE
+        )
+
+        when (state) {
+
+            // La llamada acaba de entrar.
+            TelephonyManager.EXTRA_STATE_RINGING -> {
+                val numero = intent.getStringExtra(
+                    TelephonyManager.EXTRA_INCOMING_NUMBER
+                ).orEmpty()
+
+
+                // Avisar al servidor de la llamada entrante.
+                val hosts = ServerConfig.getCandidateHosts(context)
+
+                Thread {
+                    var enviado = false
+
+                    for (host in hosts) {
+                        var conn: java.net.HttpURLConnection? = null
+
+                        try {
+                            val url = java.net.URL(
+                                "http://$host/api/incoming_call"
+                            )
+                            conn = url.openConnection() as java.net.HttpURLConnection
+                            conn.requestMethod = "POST"
+                            conn.setRequestProperty(
+                                "Content-Type",
+                                "application/json; charset=utf-8"
+                            )
+                            conn.connectTimeout = 3000
+                            conn.readTimeout = 3000
+                            conn.doOutput = true
+
+                            val payload = JSONObject().apply {
+                                put("phone", numero)
+                                put("name", "")
+                            }.toString()
+
+                            conn.outputStream.use { output ->
+                                output.write(payload.toByteArray(Charsets.UTF_8))
+                            }
+
+                            val code = conn.responseCode
+
+                            android.util.Log.d(
+                                "PhoneCallReceiver",
+                                "Aviso entrante enviado a $host - HTTP $code"
+                            )
+
+                            if (code in 200..299) {
+                                enviado = true
+                                break
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e(
+                                "PhoneCallReceiver",
+                                "Error avisando a $host",
+                                e
+                            )
+                        } finally {
+                            conn?.disconnect()
+                        }
+                    }
+
+                    if (!enviado) {
+                        android.util.Log.e(
+                            "PhoneCallReceiver",
+                            "No se pudo enviar el aviso de llamada entrante a ningún servidor"
+                        )
+                    }
+                }.start()
+
+                // --------------------------------------------------------
+
+                val pendiente = prefs.getBoolean(
+                    "call_pending",
+                    false
+                )
+
+                if (!pendiente) {
+                    crearRegistroInmediato(
+                        context,
+                        numero
+                    )
+                } else if (numero.isNotBlank()) {
+                    val numeroGuardado = prefs.getString(
+                        "call_number",
+                        ""
+                    ).orEmpty()
+
+                    if (numeroGuardado.isBlank()) {
+                        prefs.edit()
+                            .putString("call_number", numero)
+                            .apply()
+
+                        actualizarRegistro(context) { registro ->
+                            registro.put("telefono", numero)
+                        }
+                    }
+                }
+            }
+
+            // Se ha contestado: la ficha ya existe y se actualiza.
+
+            TelephonyManager.EXTRA_STATE_OFFHOOK -> {
+                if (prefs.getBoolean("call_pending", false)) {
+
+                    val yaContestada = prefs.getBoolean(
+                        "call_answered",
+                        false
+                    )
+
+                    val timestampContestada = System.currentTimeMillis()
+                    val numeroEnCurso = prefs.getString("call_number", "").orEmpty()
+
+                    prefs.edit()
+                        .putBoolean("call_answered", true)
+                        .putLong("call_answered_at", timestampContestada)
+                        .apply()
+
+                    // Avisar a la web en cuanto Android detecta que la llamada está contestada.
+                    notificarEstadoAlServidor(
+                        context = context,
+                        state = "OFFHOOK",
+                        phone = numeroEnCurso,
+                        answered = true,
+                        durationSeconds = 0L,
+                        timestamp = timestampContestada
+                    )
+
+                    actualizarRegistro(context) { registro ->
+                        registro.put("tipoLlamada", "Contestada")
+                        registro.put("llamadaEnCurso", true)
+                    }
+
+                    // Abrir la ficha solamente la primera vez
+                    // que detectamos que se ha contestado.
+                    if (!yaContestada) {
+                        abrirFichaDeLlamada(context)
+                    }
+                }
+            }
+
+
+            // La llamada ha finalizado.
+            TelephonyManager.EXTRA_STATE_IDLE -> {
+                if (!prefs.getBoolean("call_pending", false)) {
+                    return
+                }
+
+                val contestada = prefs.getBoolean(
+                    "call_answered",
+                    false
+                )
+
+                val numero = prefs.getString(
+                    "call_number",
+                    ""
+                ).orEmpty()
+
+                val inicio = prefs.getLong(
+                    "call_started_at",
+                    System.currentTimeMillis()
+                )
+                val contestadaEn = prefs.getLong("call_answered_at", 0L)
+                val fin = System.currentTimeMillis()
+                val duracionConversacion = if (contestada && contestadaEn > 0L) {
+                    ((fin - contestadaEn) / 1000L).coerceAtLeast(0L)
+                } else {
+                    0L
+                }
+
+                // Notificar el fin para detener el cronómetro y mostrar el resultado en la web.
+                notificarEstadoAlServidor(
+                    context = context,
+                    state = "IDLE",
+                    phone = numero,
+                    answered = contestada,
+                    durationSeconds = duracionConversacion,
+                    timestamp = fin
+                )
+
+                actualizarRegistro(context) { registro ->
+                    registro.put(
+                        "tipoLlamada",
+                        if (contestada) "Contestada" else "Perdida"
+                    )
+                    registro.put("llamadaEnCurso", false)
+                    registro.put(
+                        "fechaFin",
+                        fechaHora(fin)
+                    )
+                    registro.put(
+                        "duracionSegundos",
+                        ((fin - inicio) / 1000L).coerceAtLeast(0L)
+                    )
+
+                    if (
+                        numero.isNotBlank() &&
+                        registro.optString("telefono").isBlank()
+                    ) {
+                        registro.put("telefono", numero)
+                    }
+                }
+
+                prefs.edit()
+                    .putBoolean("call_pending", false)
+                    .putBoolean("call_answered", false)
+                    .remove("call_number")
+                    .remove("call_started_at")
+                    .remove("call_answered_at")
+                    .remove("call_record_id")
+                    .apply()
+                    // Enviar al servidor la llamada con su estado final.
+                    CallActionWebSocket.solicitarSincronizacion(context)
+            }
+        }
+    }
+
+
+    private fun notificarEstadoAlServidor(
+        context: Context,
+        state: String,
+        phone: String,
+        answered: Boolean,
+        durationSeconds: Long,
+        timestamp: Long
+    ) {
+        val hosts = ServerConfig.getCandidateHosts(context)
+
+        Thread {
+            var enviado = false
+
+            for (host in hosts) {
+                var conn: java.net.HttpURLConnection? = null
+
+                try {
+                    val url = java.net.URL(
+                        "http://$host/api/call_state"
+                    )
+                    conn = url.openConnection() as java.net.HttpURLConnection
+                    conn.requestMethod = "POST"
+                    conn.setRequestProperty(
+                        "Content-Type",
+                        "application/json; charset=utf-8"
+                    )
+                    conn.connectTimeout = 3000
+                    conn.readTimeout = 3000
+                    conn.doOutput = true
+
+                    val payload = JSONObject().apply {
+                        put("state", state)
+                        put("phone", phone)
+                        put("answered", answered)
+                        put("durationSeconds", durationSeconds)
+                        put("timestamp", timestamp)
+                    }.toString()
+
+                    conn.outputStream.use { output ->
+                        output.write(payload.toByteArray(Charsets.UTF_8))
+                    }
+
+                    val code = conn.responseCode
+
+                    android.util.Log.d(
+                        "PhoneCallReceiver",
+                        "Estado $state enviado a $host - HTTP $code"
+                    )
+
+                    if (code in 200..299) {
+                        enviado = true
+                        break
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e(
+                        "PhoneCallReceiver",
+                        "Error notificando estado $state a $host",
+                        e
+                    )
+                } finally {
+                    conn?.disconnect()
+                }
+            }
+
+            if (!enviado) {
+                android.util.Log.e(
+                    "PhoneCallReceiver",
+                    "No se pudo enviar el estado $state a ningún servidor"
+                )
+            }
+        }.start()
+    }
+
+
+    private fun crearRegistroInmediato(
+        context: Context,
+        numero: String
+    ) {
+        val prefs = context.getSharedPreferences(
+            "desguace_crm",
+            Context.MODE_PRIVATE
+        )
+
+        val ahora = System.currentTimeMillis()
+        val id = ahora.toString()
+
+        val nombreGuardado = buscarNombreCliente(context, numero)
+
+        val registro = JSONObject().apply {
+            put("callId", id)
+            put("fechaHora", fechaHora(ahora))
+            put("telefono", numero)
+            put("nombre", nombreGuardado)
+            put("tipoLlamada", "En curso")
+            put("pieza", "")
+            put("descripcion", "")
+            put("lado", "")
+            put("oem", "")
+            put("marca", "")
+            put("modelo", "")
+            put("motor", "")
+            put("anio", "")
+            put("estado", "Pendiente")
+            put("apuntes", "")
+            put("llamadaEnCurso", true)
+            put("sincronizado", false)
+        }
+
+        val llamadas = leerLlamadas(context)
+        llamadas.put(registro)
+
+        // Guardamos inmediatamente la ficha, sin esperar a colgar.
+        prefs.edit()
+            .putString("llamadas", llamadas.toString())
+            .putBoolean("call_pending", true)
+            .putBoolean("call_answered", false)
+            .putString("call_number", numero)
+            .putString("call_record_id", id)
+            .putLong("call_started_at", ahora)
+            .remove("call_answered_at")
+            .apply()
+    }
+
+    private fun actualizarRegistro(
+        context: Context,
+        actualizar: (JSONObject) -> Unit
+    ) {
+        val prefs = context.getSharedPreferences(
+            "desguace_crm",
+            Context.MODE_PRIVATE
+        )
+
+        val id = prefs.getString(
+            "call_record_id",
+            null
+        ) ?: return
+
+        val llamadas = leerLlamadas(context)
+
+        for (i in 0 until llamadas.length()) {
+            val registro = llamadas.optJSONObject(i) ?: continue
+
+            if (registro.optString("callId") == id) {
+                actualizar(registro)
+
+                // El registro cambió localmente y debe enviarse otra vez.
+                registro.put("sincronizado", false)
+
+                llamadas.put(i, registro)
+
+                prefs.edit()
+                    .putString("llamadas", llamadas.toString())
+                    .apply()
+
+                return
+            }
+        }
+    }
+
+    private fun leerLlamadas(context: Context): JSONArray {
+        val prefs = context.getSharedPreferences(
+            "desguace_crm",
+            Context.MODE_PRIVATE
+        )
+
+        return try {
+            JSONArray(
+                prefs.getString("llamadas", "[]") ?: "[]"
+            )
+        } catch (_: Exception) {
+            JSONArray()
+        }
+    }
+
+    private fun fechaHora(milisegundos: Long): String {
+        return SimpleDateFormat(
+            "yyyy-MM-dd HH:mm:ss",
+            Locale.getDefault()
+        ).format(Date(milisegundos))
+    }
+
+    private fun abrirFichaDeLlamada(context: Context) {
+        val prefs = context.getSharedPreferences(
+            "desguace_crm",
+            Context.MODE_PRIVATE
+        )
+
+        val id = prefs.getString("call_record_id", null) ?: return
+        val llamadas = leerLlamadas(context)
+
+        var indice = -1
+
+        for (i in 0 until llamadas.length()) {
+            val registro = llamadas.optJSONObject(i) ?: continue
+
+            if (registro.optString("callId") == id) {
+                indice = i
+                break
+            }
+        }
+
+        if (indice < 0) return
+
+        val intent = Intent(
+            context,
+            CallFormActivity::class.java
+        ).apply {
+            putExtra(
+                CallFormActivity.EXTRA_CALL_INDEX,
+                indice
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        context.startActivity(intent)
+    }
+
+
+    private fun buscarNombreCliente(
+        context: Context,
+        numero: String
+    ): String {
+        if (numero.isBlank()) return ""
+
+        fun normalizarNumero(valor: String): String {
+            return valor.filter { it.isDigit() }
+        }
+
+        val numeroBuscado = normalizarNumero(numero)
+        if (numeroBuscado.isBlank()) return ""
+
+        val llamadas = leerLlamadas(context)
+
+        // Buscar desde la llamada más reciente hacia atrás.
+        for (i in llamadas.length() - 1 downTo 0) {
+            val registro = llamadas.optJSONObject(i) ?: continue
+
+            val numeroGuardado = normalizarNumero(
+                registro.optString("telefono")
+            )
+
+            if (numeroGuardado.isBlank()) continue
+
+            val coincide = if (
+                numeroBuscado.length >= 9 &&
+                numeroGuardado.length >= 9
+            ) {
+                numeroBuscado.takeLast(9) ==
+                        numeroGuardado.takeLast(9)
+            } else {
+                numeroBuscado == numeroGuardado
+            }
+
+            if (!coincide) continue
+
+            val nombre = registro.optString("nombre").trim()
+
+            if (
+                nombre.isNotBlank() &&
+                !nombre.equals("null", ignoreCase = true)
+            ) {
+                return nombre
+            }
+        }
+
+        return ""
+    }
+
+}
+
+

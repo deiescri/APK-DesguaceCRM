@@ -1,0 +1,63 @@
+
+package com.desguace.crm
+
+import android.content.Context
+
+object ServerConfig {
+    private const val PREFS_NAME = "desguace_crm_server_config"
+    private const val KEY_SERVER_HOST = "server_host"
+    private const val DEFAULT_HOST = "192.168.1.41:3000"
+    private const val USB_HOST = "127.0.0.1:3000"
+    private const val VPN_HOST = "100.116.67.134:3000"
+
+    fun getServerHost(context: Context): String {
+        val prefs = context.getSharedPreferences(
+            PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
+
+        val host = prefs.getString(KEY_SERVER_HOST, null)
+            ?.trim()
+            .orEmpty()
+
+        return if (host.isBlank()) DEFAULT_HOST else host
+    }
+
+    fun getCandidateHosts(context: Context): List<String> {
+        val configuredHost = getServerHost(context)
+
+        return listOf(
+            USB_HOST,
+            configuredHost,
+            VPN_HOST
+        ).distinct()
+    }
+
+    fun setServerHost(context: Context, host: String) {
+        val hostLimpio = host.trim()
+            .removePrefix("http://")
+            .removePrefix("https://")
+            .removePrefix("ws://")
+            .removePrefix("wss://")
+            .trimEnd('/')
+
+        val hostFinal = if (hostLimpio.isBlank()) {
+            DEFAULT_HOST
+        } else {
+            hostLimpio
+        }
+
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_SERVER_HOST, hostFinal)
+            .apply()
+    }
+
+    fun getApiUrl(context: Context): String {
+        return "http://${getServerHost(context)}/api/llamadas"
+    }
+
+    fun getWebSocketUrl(context: Context): String {
+        return "ws://${getServerHost(context)}/ws-android"
+    }
+}

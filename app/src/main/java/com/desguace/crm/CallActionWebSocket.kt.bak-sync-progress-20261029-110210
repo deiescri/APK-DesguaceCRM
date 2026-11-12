@@ -1,0 +1,330 @@
+
+package com.desguace.crm
+
+import android.content.Context
+import android.util.Log
+import okhttp3.*
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+object CallActionWebSocket {
+
+    private const val TAG = "CallWebSocket"
+
+    @Volatile
+    private var webSocket: WebSocket? = null
+
+    @Volatile
+    private var isConnecting = false
+
+    @Volatile
+    private var currentUrl: String? = null
+
+    @Volatile
+    private var activeHost: String? = null
+
+    private val syncScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val syncLock = Any()
+    private var syncRequested = false
+
+    @Volatile
+    private var syncJob: Job? = null
+
+    private val scheduler =
+        Executors.newSingleThreadScheduledExecutor()
+
+    private val client: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .pingInterval(10, TimeUnit.SECONDS)
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .build()
+    }
+
+    fun conectar(context: Context) {
+        val appContext = context.applicationContext
+
+        if (isConnecting) return
+
+        val hosts = ServerConfig.getCandidateHosts(appContext)
+        conectarConHost(appContext, hosts, 0)
+    }
+
+    private fun conectarConHost(
+        appContext: Context,
+        hosts: List<String>,
+        indice: Int
+    ) {
+        if (indice >= hosts.size) {
+            isConnecting = false
+            currentUrl = null
+
+            Log.w(TAG, "USB y Wi-Fi no disponibles. Reintentando en 5 segundos.")
+
+            scheduler.schedule({
+                conectar(appContext)
+            }, 5, TimeUnit.SECONDS)
+
+            return
+        }
+
+        if (isConnecting) return
+
+        val host = hosts[indice]
+        val serverUrl = "ws://$host/ws-android"
+
+        isConnecting = true
+        currentUrl = serverUrl
+
+        Log.d(TAG, "Intentando conexión ${indice + 1}/${hosts.size}: $serverUrl")
+        Log.d(TAG, "Hosts disponibles para conexión: $hosts")
+
+        val request = Request.Builder()
+            .url(serverUrl)
+            .build()
+
+        webSocket?.cancel()
+
+        webSocket = client.newWebSocket(
+            request,
+            object : WebSocketListener() {
+
+                override fun onOpen(
+                    webSocket: WebSocket,
+                    response: Response
+                ) {
+                    if (currentUrl != serverUrl) {
+                        webSocket.cancel()
+                        return
+                    }
+
+                    isConnecting = false
+                    activeHost = host
+
+                    Log.i(TAG, "WebSocket conectado correctamente: $serverUrl")
+
+                    solicitarSincronizacion(appContext)
+                }
+
+                override fun onMessage(
+                    webSocket: WebSocket,
+                    text: String
+                ) {
+                    if (currentUrl != serverUrl) return
+
+                    Log.d(TAG, "Orden recibida: $text")
+
+                    try {
+                        val json = JSONObject(text)
+
+                        // Si la orden de contestar viene de la web, marcarla como remota.
+                        if (json.optString("action").equals("answer", ignoreCase = true)) {
+                            appContext.getSharedPreferences(
+                                "desguace_crm",
+                                Context.MODE_PRIVATE
+                            ).edit()
+                                .putLong(
+                                    "respuesta_desde_web_hasta",
+                                    System.currentTimeMillis() + 20_000L
+                                )
+                                .apply()
+
+                            Log.i(TAG, "Respuesta solicitada desde la web: no abrir formulario automático.")
+                        }
+
+                        if (json.optString("type") == "CALLS_CHANGED") {
+                            val origen = json.optString("source")
+
+                            if (origen == "web") {
+                                Log.i(
+                                    TAG,
+                                    "Cambio recibido desde la web. Sincronizando llamadas..."
+                                )
+
+                                solicitarSincronizacion(appContext)
+                            }
+
+                            return
+                        }
+
+                        when (json.optString("action").lowercase()) {
+                            "answer" -> {
+                                CallControlManager.contestarLlamada(appContext)
+                            }
+
+                            "hangup" -> {
+                                CallControlManager.colgarLlamada(appContext)
+                            }
+
+                            "mute", "unmute" -> {
+                                val silenciar =
+                                    if (json.has("muted")) {
+                                        json.optBoolean("muted")
+                                    } else {
+                                        json.optString("action")
+                                            .equals("mute", true)
+                                    }
+
+                                val aplicado =
+                                    CallControlManager
+                                        .establecerMicrofonoSilenciado(
+                                            appContext,
+                                            silenciar
+                                        )
+
+                                notificarMuteAlServidor(
+                                    appContext,
+                                    silenciar,
+                                    aplicado
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error procesando mensaje", e)
+                    }
+                }
+
+                override fun onFailure(
+                    webSocket: WebSocket,
+                    t: Throwable,
+                    response: Response?
+                ) {
+                    if (currentUrl != serverUrl) return
+
+                    isConnecting = false
+
+                    Log.e(
+                        TAG,
+                        "Falló $serverUrl: ${t.message}"
+                    )
+
+                    scheduler.schedule({
+                        if (currentUrl == serverUrl && !isConnecting) {
+                            conectarConHost(
+                                appContext,
+                                hosts,
+                                indice + 1
+                            )
+                        }
+                    }, 1, TimeUnit.SECONDS)
+                }
+
+                override fun onClosed(
+                    webSocket: WebSocket,
+                    code: Int,
+                    reason: String
+                ) {
+                    if (currentUrl != serverUrl) return
+
+                    isConnecting = false
+
+                    Log.d(
+                        TAG,
+                        "WebSocket cerrado: $reason"
+                    )
+
+                    scheduler.schedule({
+                        if (!isConnecting && currentUrl == serverUrl) {
+                            conectar(appContext)
+                        }
+                    }, 2, TimeUnit.SECONDS)
+                }
+            }
+        )
+    }
+
+    fun solicitarSincronizacion(context: Context) {
+        val appContext = context.applicationContext
+
+        synchronized(syncLock) {
+            syncRequested = true
+
+            if (syncJob?.isActive == true) {
+                Log.d(
+                    TAG,
+                    "Sincronización pendiente: se repetirá al terminar la actual."
+                )
+                return
+            }
+
+            syncJob = syncScope.launch {
+                while (true) {
+                    val ejecutar = synchronized(syncLock) {
+                        if (syncRequested) {
+                            syncRequested = false
+                            true
+                        } else {
+                            syncJob = null
+                            false
+                        }
+                    }
+
+                    if (!ejecutar) break
+
+                    try {
+                        Log.i(TAG, "Iniciando sincronización de llamadas, catálogos e inventarios importados desde el PC.")
+                        SyncManager.subirLlamadasAlServidor(appContext)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error al sincronizar llamadas.", e)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun notificarMuteAlServidor(
+        context: Context,
+        muted: Boolean,
+        aplicado: Boolean
+    ) {
+        val host = activeHost ?: ServerConfig.getServerHost(context)
+
+        Thread {
+            var conn: HttpURLConnection? = null
+
+            try {
+                conn = URL(
+                    "http://$host/api/call_mute_state"
+                ).openConnection() as HttpURLConnection
+
+                conn.requestMethod = "POST"
+                conn.setRequestProperty(
+                    "Content-Type",
+                    "application/json; charset=UTF-8"
+                )
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                conn.doOutput = true
+
+                val payload = JSONObject().apply {
+                    put("muted", muted)
+                    put("applied", aplicado)
+                }.toString()
+
+                conn.outputStream.use {
+                    it.write(payload.toByteArray(Charsets.UTF_8))
+                }
+
+                Log.d(
+                    TAG,
+                    "Estado mute notificado: muted=$muted, " +
+                            "aplicado=$aplicado, HTTP ${conn.responseCode}"
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "No se pudo notificar el estado mute", e)
+            } finally {
+                conn?.disconnect()
+            }
+        }.start()
+    }
+}

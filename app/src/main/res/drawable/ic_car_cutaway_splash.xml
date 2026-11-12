@@ -1,0 +1,134 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="180dp"
+    android:viewportWidth="220"
+    android:viewportHeight="200">
+
+  <!-- FONDO Y RESPLANDOR AZUL -->
+  <path
+      android:fillColor="#1E3A8A"
+      android:pathData="M10,20 L210,20 C215,20 220,25 220,30 L220,180 C220,185 215,190 210,190 L10,190 C5,190 0,185 0,180 L0,30 C0,25 5,20 10,20 Z" />
+
+  <!-- LADO DERECHO: CARROCERÍA COMPLETA AZUL METÁLICO -->
+  <path
+      android:fillColor="#2563EB"
+      android:pathData="M110,25 L165,28 C185,30 200,45 208,65 L215,95 C216,102 212,112 205,115 L110,118 Z" />
+
+  <path
+      android:fillColor="#3B82F6"
+      android:pathData="M110,25 L160,28 C175,30 190,42 196,58 L202,82 L110,85 Z" />
+
+  <!-- Faro Delantero LED derecho encendido (Luz brillante) -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M148,82 L188,78 C192,78 195,82 192,86 L152,90 C148,90 145,86 148,82 Z" />
+  <path
+      android:fillColor="#93C5FD"
+      android:pathData="M152,83 L182,80 L180,85 L154,87 Z" />
+
+  <!-- Parrilla Doble / Rejilla -->
+  <path
+      android:fillColor="#0F172A"
+      android:pathData="M112,88 L142,88 L142,108 L112,108 Z" />
+  <path
+      android:fillColor="#1E293B"
+      android:pathData="M115,90 L126,90 L126,106 L115,106 Z" />
+  <path
+      android:fillColor="#1E293B"
+      android:pathData="M129,90 L140,90 L140,106 L129,106 Z" />
+
+  <!-- Parachoques y capó brillante -->
+  <path
+      android:fillColor="#1D4ED8"
+      android:pathData="M110,108 L205,108 L200,118 L110,118 Z" />
+
+  <!-- LADO IZQUIERDO: CHASIS EXPUESTO / ESTRUCTURA DE DESPIECE -->
+  <path
+      android:fillColor="#0F172A"
+      android:pathData="M10,118 L110,118 L110,25 L55,28 C35,30 20,45 12,65 L5,95 Z" />
+
+  <!-- Chasis / Tubos de acero del chasis expuesto -->
+  <path
+      android:fillColor="#64748B"
+      android:pathData="M15,65 L110,50 L110,54 L20,68 Z" />
+  <path
+      android:fillColor="#94A3B8"
+      android:pathData="M25,75 L110,65 L110,69 L30,78 Z" />
+  <path
+      android:fillColor="#CBD5E1"
+      android:pathData="M35,88 L110,80 L110,84 L40,91 Z" />
+
+  <!-- Motor Bloque Cilindros / Colector de admisión -->
+  <path
+      android:fillColor="#E2E8F0"
+      android:pathData="M50,55 L95,50 L95,85 L50,88 Z" />
+  <!-- Tubos del colector -->
+  <path
+      android:fillColor="#38BDF8"
+      android:pathData="M55,58 L60,58 L60,82 L55,82 Z" />
+  <path
+      android:fillColor="#38BDF8"
+      android:pathData="M65,57 L70,57 L70,82 L65,82 Z" />
+  <path
+      android:fillColor="#38BDF8"
+      android:pathData="M75,56 L80,56 L80,82 L75,82 Z" />
+  <path
+      android:fillColor="#38BDF8"
+      android:pathData="M85,55 L90,55 L90,82 L85,82 Z" />
+
+  <!-- Rueda delantera izquierda (Llantas y disco) -->
+  <path
+      android:fillColor="#1E293B"
+      android:pathData="M18,92 A16,16 0 1,0 18,124 A16,16 0 1,0 18,92 Z" />
+  <path
+      android:fillColor="#64748B"
+      android:pathData="M18,97 A11,11 0 1,0 18,119 A11,11 0 1,0 18,97 Z" />
+  <path
+      android:fillColor="#EF4444"
+      android:pathData="M22,102 L28,102 L28,112 L22,112 Z" />
+
+  <!-- LÍNEA NEÓN CENTRAL QUE DIVIDE AMBAS MITADES -->
+  <path
+      android:fillColor="#38BDF8"
+      android:pathData="M108,20 L112,20 L112,125 L108,125 Z" />
+
+  <!-- SECCIÓN INFERIOR: MOTORIZACIÓN Y BADGE DE ENGRANAJES NEÓN -->
+  <!-- Motor izquierdo pequeño expuesto -->
+  <path
+      android:fillColor="#94A3B8"
+      android:pathData="M15,135 L55,135 L50,175 L10,175 Z" />
+  <path
+      android:fillColor="#E2E8F0"
+      android:pathData="M20,130 L45,130 L45,145 L20,145 Z" />
+
+  <!-- Motor derecho moderno V-Engine -->
+  <path
+      android:fillColor="#334155"
+      android:pathData="M165,135 L205,135 L210,175 L170,175 Z" />
+  <path
+      android:fillColor="#0F172A"
+      android:pathData="M170,130 L200,130 L200,148 L170,148 Z" />
+
+  <!-- Insignia Central Círculo Neón con Engranajes -->
+  <path
+      android:fillColor="#0F172A"
+      android:pathData="M110,160 m-25,0 a25,25 0 1,0 50,0 a25,25 0 1,0 -50,0" />
+  <path
+      android:fillColor="#38BDF8"
+      android:pathData="M110,160 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0" />
+  <path
+      android:fillColor="#0F172A"
+      android:pathData="M110,160 m-18,0 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0" />
+
+  <!-- Dientes del engranaje en el centro -->
+  <path
+      android:fillColor="#60A5FA"
+      android:pathData="M106,148 L114,148 L114,172 L106,172 Z" />
+  <path
+      android:fillColor="#60A5FA"
+      android:pathData="M98,156 L122,156 L122,164 L98,164 Z" />
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M110,160 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+
+</vector>

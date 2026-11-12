@@ -1,0 +1,214 @@
+package com.desguace.crm
+
+import android.content.Context
+import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.util.concurrent.atomic.AtomicBoolean
+
+/** Descarga en lotes las importaciones del ordenador, sin sobrescribir los catálogos originales de Android. */
+object WebInventorySyncManager {
+    private const val TAG = "WebInventorySync"
+    private const val PAGE_SIZE = 500
+    private const val PREFS = "desguace_crm"
+    private val syncRunning = AtomicBoolean(false)
+
+    fun sincronizar(context: Context) {
+        if (!syncRunning.compareAndSet(false, true)) {
+            Log.i(TAG, "Ya hay una sincronización de inventario en curso; se evita duplicarla.")
+            return
+        }
+        try {
+            sincronizarInterno(context.applicationContext)
+        } finally {
+            syncRunning.set(false)
+        }
+    }
+
+    private fun sincronizarInterno(appContext: Context) {
+        val statusPair = consultarEstado(appContext) ?: run {
+            Log.w(TAG, "No se pudo consultar el estado de inventario del servidor por USB ni Wi-Fi.")
+            return
+        }
+        val (baseUrl, status) = statusPair
+        val db = WebInventoryCacheDatabase(appContext)
+        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+        try {
+        val vehicleMeta = status.optJSONObject("vehicles") ?: JSONObject()
+        val stockMeta = status.optJSONObject("stock") ?: JSONObject()
+        val version = status.optLong("version", 0L).coerceAtLeast(0L)
+
+        Log.i(TAG, "Inventario remoto: ${vehicleMeta.optInt("count", 0)} coches; ${stockMeta.optInt("count", 0)} piezas importadas desde el PC; versión $version.")
+
+        try {
+            sincronizarEntidad(
+                baseUrl = baseUrl,
+                prefs = prefs,
+                prefKey = "web_inv_yard",
+                endpoint = "/api/mobile-sync/yard-vehicles",
+                remoteCount = vehicleMeta.optInt("count", 0),
+                untilVersionDefault = version,
+                guardarPagina = { items -> db.upsertYardVehicles(items) }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "No se pudo completar la sincronización de coches; se conservará el punto de reanudación.", e)
+        }
+
+        try {
+            sincronizarEntidad(
+                baseUrl = baseUrl,
+                prefs = prefs,
+                prefKey = "web_inv_stock",
+                endpoint = "/api/mobile-sync/stock-imports",
+                remoteCount = stockMeta.optInt("count", 0),
+                untilVersionDefault = version,
+                guardarPagina = { items -> db.upsertPcStock(items) }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "No se pudo completar la sincronización de piezas importadas; se conservará el punto de reanudación.", e)
+        }
+
+        Log.i(TAG, "Caché local al terminar: ${db.contarVehiculos()} coches y ${db.contarPiezasImportadas()} piezas importadas del PC.")
+        } finally {
+            db.close()
+        }
+    }
+
+    private fun consultarEstado(context: Context): Pair<String, JSONObject>? {
+        for (host in ServerConfig.getCandidateHosts(context)) {
+            val base = "http://$host"
+            val result = getJson("$base/api/mobile-sync/status", 2500, 5000)
+            if (result != null && result.optBoolean("success", true)) return base to result
+        }
+        return null
+    }
+
+    private fun sincronizarEntidad(
+        baseUrl: String,
+        prefs: android.content.SharedPreferences,
+        prefKey: String,
+        endpoint: String,
+        remoteCount: Int,
+        untilVersionDefault: Long,
+        guardarPagina: (JSONArray) -> Int
+    ) {
+        val isPending = prefs.getBoolean("${prefKey}_pending", false)
+        val storedLastVersion = prefs.getLong("${prefKey}_last_version", -1L)
+        val mode: String
+        val sinceVersion: Long
+        val untilVersion: Long
+        var afterId: String
+
+        if (isPending) {
+            mode = prefs.getString("${prefKey}_mode", "full") ?: "full"
+            sinceVersion = prefs.getLong("${prefKey}_since_version", -1L)
+            untilVersion = prefs.getLong("${prefKey}_until_version", untilVersionDefault)
+            afterId = prefs.getString("${prefKey}_after_id", "") ?: ""
+            Log.i(TAG, "Reanudando $prefKey desde id '$afterId' hasta versión $untilVersion.")
+        } else {
+            mode = if (storedLastVersion < 0L) "full" else "delta"
+            sinceVersion = storedLastVersion
+            untilVersion = untilVersionDefault
+            afterId = ""
+            prefs.edit()
+                .putBoolean("${prefKey}_pending", true)
+                .putString("${prefKey}_mode", mode)
+                .putLong("${prefKey}_since_version", sinceVersion)
+                .putLong("${prefKey}_until_version", untilVersion)
+                .putString("${prefKey}_after_id", "")
+                .apply()
+        }
+
+        if (mode == "delta" && untilVersion <= sinceVersion) {
+            prefs.edit()
+                .putLong("${prefKey}_last_version", maxOf(storedLastVersion, untilVersion))
+                .putBoolean("${prefKey}_pending", false)
+                .remove("${prefKey}_after_id")
+                .apply()
+            Log.i(TAG, "$prefKey ya está actualizado en versión $untilVersion.")
+            return
+        }
+
+        if (mode == "full" && remoteCount == 0) {
+            prefs.edit()
+                .putLong("${prefKey}_last_version", untilVersion)
+                .putBoolean("${prefKey}_pending", false)
+                .remove("${prefKey}_after_id")
+                .apply()
+            Log.i(TAG, "$prefKey no tiene registros en el servidor.")
+            return
+        }
+
+        var descargadosEstaEjecucion = 0
+        while (true) {
+            val query = buildString {
+                append("?limit=").append(PAGE_SIZE)
+                append("&untilVersion=").append(untilVersion)
+                append("&afterId=").append(encode(afterId))
+                if (mode == "delta") append("&sinceVersion=").append(sinceVersion)
+            }
+            val response = getJson("$baseUrl$endpoint$query", 5000, 60000)
+                ?: throw IllegalStateException("No se recibió una respuesta válida de $endpoint")
+            if (!response.optBoolean("success", true)) {
+                throw IllegalStateException(response.optString("message", "La API rechazó la sincronización de $prefKey"))
+            }
+            val items = response.optJSONArray("items")
+                ?: throw IllegalStateException("La API de $endpoint no devolvió items.")
+            val nextId = response.optString("nextCursor", afterId)
+            val hasMore = response.optBoolean("hasMore", false)
+
+            if (hasMore && (items.length() == 0 || nextId.isBlank() || nextId == afterId)) {
+                throw IllegalStateException("La paginación de $endpoint no avanzó; se conserva el cursor para reintentar.")
+            }
+
+            val guardados = guardarPagina(items)
+            descargadosEstaEjecucion += guardados
+            if (hasMore) {
+                afterId = nextId
+                prefs.edit().putString("${prefKey}_after_id", afterId).apply()
+                Log.i(TAG, "$prefKey: lote guardado ($guardados registros); cursor='$afterId'.")
+            } else {
+                prefs.edit()
+                    .putLong("${prefKey}_last_version", untilVersion)
+                    .putBoolean("${prefKey}_pending", false)
+                    .remove("${prefKey}_mode")
+                    .remove("${prefKey}_since_version")
+                    .remove("${prefKey}_until_version")
+                    .remove("${prefKey}_after_id")
+                    .apply()
+                Log.i(TAG, "$prefKey sincronizado. Registros aplicados en esta ejecución: $descargadosEstaEjecucion; versión $untilVersion.")
+                break
+            }
+        }
+    }
+
+    private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+    private fun getJson(urlText: String, connectTimeoutMs: Int, readTimeoutMs: Int): JSONObject? {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = URL(urlText).openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = connectTimeoutMs
+            connection.readTimeout = readTimeoutMs
+            connection.setRequestProperty("Accept", "application/json")
+            connection.setRequestProperty("Cache-Control", "no-cache")
+            if (connection.responseCode !in 200..299) {
+                Log.w(TAG, "GET $urlText devolvió HTTP ${connection.responseCode}.")
+                null
+            } else {
+                val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                JSONObject(body)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "No se pudo consultar $urlText: ${e.message}")
+            null
+        } finally {
+            connection?.disconnect()
+        }
+    }
+}

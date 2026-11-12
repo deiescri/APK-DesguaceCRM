@@ -1,0 +1,127 @@
+
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B132B">
+
+    <!-- Imagen de fondo a pantalla completa -->
+    <ImageView
+        android:id="@+id/imgSplash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="Imagen de carga de DesguaceCRM"
+        android:scaleType="centerCrop"
+        android:src="@drawable/img_splash_car" />
+
+    <!-- Oscurece suavemente la imagen para facilitar la lectura -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#660B132B" />
+
+    <!-- Contenido superpuesto -->
+
+    <!-- Versión de la aplicación -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Desguace"
+                android:textColor="#FFFFFF"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CRM"
+                android:textColor="#10B981"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="Gestión inteligente de despiece y llamadas"
+            android:textColor="#E2E8F0"
+            android:textSize="14sp" />
+
+
+
+        <FrameLayout
+            android:id="@+id/contenedorCarga"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:layout_marginTop="32dp"
+            android:translationY="170dp"
+            android:background="@drawable/bg_splash_neon_glow">
+
+            <!-- Halo exterior -->
+            <ProgressBar
+                android:layout_width="76dp"
+                android:layout_height="76dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:indeterminateTint="#55FFFFFF"
+                android:indeterminateTintMode="src_in"
+                android:alpha="0.65" />
+
+            <!-- Anillo luminoso intermedio -->
+            <ProgressBar
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:indeterminateTint="#AAFFFFFF"
+                android:indeterminateTintMode="src_in" />
+
+            <!-- Núcleo blanco brillante -->
+            <ProgressBar
+                android:id="@+id/progressSplash"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:indeterminateTint="#FFFFFFFF"
+                android:indeterminateTintMode="src_in" />
+
+        </FrameLayout>
+
+
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Preparando DesguaceCRM..."
+            android:textColor="#CBD5E1"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="24dp"
+        android:text="v1.0 · Sistema CRM de Desguace"
+        android:textColor="#CBD5E1"
+        android:textSize="11sp" />
+
+</FrameLayout>

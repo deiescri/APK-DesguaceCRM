@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_bottom_sheet"
+    android:orientation="vertical"
+    android:paddingHorizontal="20dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="28dp">
+
+    <!-- Indicador de arrastre del BottomSheet -->
+    <View
+        android:layout_width="36dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_dashboard_card"
+        android:backgroundTint="#CBD5E1" />
+
+    <!-- Encabezado del Menú -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginEnd="10dp"
+            android:contentDescription="Logo DesguaceCRM"
+            android:src="@drawable/ic_recycling" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Desguace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CRM"
+                    android:textColor="#10B981"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Gestión de llamadas y piezas"
+                android:textColor="#64748B"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btnCerrarMenu"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Cerrar menú"
+            android:src="@drawable/ic_close" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="16dp"
+        android:background="#F1F5F9" />
+
+    <!-- Opción 1: Registrar llamada -->
+    <LinearLayout
+        android:id="@+id/btnMenuNuevaLlamada"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_blue"
+            android:contentDescription="Registrar llamada"
+            android:padding="9dp"
+            android:src="@drawable/ic_phone" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Registrar llamada"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+    <!-- Opción 2: Buscar pieza en stock -->
+    <LinearLayout
+        android:id="@+id/btnMenuBuscarPieza"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_green"
+            android:contentDescription="Buscar pieza en stock"
+            android:padding="9dp"
+            android:src="@drawable/ic_search_stock" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Buscar pieza en stock"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+    <!-- Opción 3: Copias de seguridad -->
+    <LinearLayout
+        android:id="@+id/btnMenuCopiasSeguridad"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_slate"
+            android:contentDescription="Copias de seguridad"
+            android:padding="9dp"
+            android:src="@drawable/ic_backup" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Copias de seguridad"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+    <!-- Opción: Buscar coche / catálogo -->
+    <LinearLayout
+        android:id="@+id/btnMenuBuscarVehiculo"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_green"
+            android:contentDescription="Buscar coche / catálogo"
+            android:padding="9dp"
+            android:src="@drawable/ic_car" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Buscar coche / catálogo"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+    <!-- Inventario físico sincronizado desde la web -->
+    <LinearLayout
+        android:id="@+id/btnMenuInventarioCoches"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_blue"
+            android:contentDescription="Inventario físico de coches"
+            android:padding="9dp"
+            android:src="@drawable/ic_car" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Inventario de coches del desguace"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+    <!-- Opción 4: Actualizar catálogo de vehículos -->
+    <LinearLayout
+        android:id="@+id/btnMenuImportarCatalogoVehiculos"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_teal"
+            android:contentDescription="Actualizar catálogo de vehículos"
+            android:padding="9dp"
+            android:src="@drawable/ic_car" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Actualizar catálogo de vehículos"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+    <!-- Opción 5: Ver llamadas registradas -->
+    <LinearLayout
+        android:id="@+id/btnMenuVerLlamadas"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_navy"
+            android:contentDescription="Ver llamadas registradas"
+            android:padding="9dp"
+            android:src="@drawable/ic_list" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Ver llamadas registradas"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+    <!-- Opción 6: Cambiar modo claro / oscuro -->
+    <LinearLayout
+        android:id="@+id/btnMenuModoOscuro"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_menu_row"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:id="@+id/ivIconoModoTema"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/bg_circle_slate"
+            android:contentDescription="Cambiar tema claro / oscuro"
+            android:padding="9dp"
+            android:src="@drawable/ic_theme_toggle" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Modo claro / oscuro"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Ir"
+            android:src="@drawable/ic_chevron_right" />
+
+    </LinearLayout>
+
+</LinearLayout>

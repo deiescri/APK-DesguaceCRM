@@ -1,0 +1,4 @@
+<resources>
+    <string name="accessibility_desc">Permite a DesguaceCRM contestar y colgar llamadas de forma remota desde tu PC.</string>
+    <string name="app_name">DesguaceCRM</string>
+</resources>
